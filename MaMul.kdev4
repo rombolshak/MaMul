@@ -1,0 +1,4 @@
+[Project]
+Name=MaMul
+Manager=KDevCMakeManager
+VersionControl=kdevgit
