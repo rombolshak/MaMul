@@ -1,5 +1,5 @@
 project(mamul)
 
-add_executable(mamul main.cpp)
+add_executable(mamul main.c)
 
 install(TARGETS mamul RUNTIME DESTINATION bin)
