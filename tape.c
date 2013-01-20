@@ -18,6 +18,7 @@
 #include "tape.h"
 #include "mpi.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 #define ROW 1
 #define COL 2
@@ -27,9 +28,10 @@ int procsNum, myRank;
 
 void Init(double *A, double *B, int len) {
     int i, j;
+    
     // pass columns and rows to others processors
-    for (i = 1; i < procsNum; ++i) {
-	if (myRank == 0) {
+    if (myRank == 0) {
+	for (i = 1; i < procsNum; ++i) {
 	    for (j = 0; j < len; ++j) {
 		row[j] = A[j];
 		col[j] = B[j * len + i];
@@ -37,13 +39,14 @@ void Init(double *A, double *B, int len) {
 	    MPI_Send(row, len, MPI_DOUBLE, i, ROW, MPI_COMM_WORLD);
 	    MPI_Send(col, len, MPI_DOUBLE, i, COL, MPI_COMM_WORLD);
 	}
-	else {
-	    MPI_Recv(row, len, MPI_DOUBLE, 0, ROW, MPI_COMM_WORLD, NULL);
-	    MPI_Recv(col, len, MPI_DOUBLE, 0, COL, MPI_COMM_WORLD, NULL);
-	}
     }
+    if (myRank != 0) {
+	MPI_Recv(row, len, MPI_DOUBLE, 0, ROW, MPI_COMM_WORLD, NULL);
+	MPI_Recv(col, len, MPI_DOUBLE, 0, COL, MPI_COMM_WORLD, NULL);
+    }
+    
     // make the same for ourselves
-    if (myRank == 0)
+    else
 	for (i = 0; i < len; ++i) {
 	    row[i] = A[i];
 	    col[i] = B[i * len];
@@ -51,14 +54,14 @@ void Init(double *A, double *B, int len) {
 }
 
 void DoMult(int i, int len) {
-    int j;
+    int j;    
     res[i] = 0;
-    for (j = 0; j < len; ++i)
+    for (j = 0; j < len; ++j)
 	res[i] += row[j] * col[j];
 }
 
-void Shift(int i, int len) {
-    MPI_Sendrecv_replace(col, len, MPI_DOUBLE, i-1<0?(len-1):(i-1), COL, i, COL, MPI_COMM_WORLD, NULL);
+void Shift(int len) {
+    MPI_Sendrecv_replace(col, len, MPI_DOUBLE, (myRank == 0) ? (len-1) : (myRank-1), COL, (myRank == len-1) ? (0) : (myRank + 1), COL, MPI_COMM_WORLD, NULL);
 }
 
 void TapeMult(double *A, double *B, double *C, int len) {
@@ -66,7 +69,7 @@ void TapeMult(double *A, double *B, double *C, int len) {
     
     MPI_Comm_size(MPI_COMM_WORLD, &procsNum);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
-
+    
     if (procsNum != len) return; // number of processors must be the same the power of matrix is
     
     row = malloc(sizeof(double) * len);
@@ -74,12 +77,14 @@ void TapeMult(double *A, double *B, double *C, int len) {
     res = malloc(sizeof(double) * len);
     
     Init(A, B, len);
-
+    
     for (i = 0; i < len; ++i) {
 	DoMult(i, len);
-	Shift(i, len);
+	MPI_Barrier(MPI_COMM_WORLD);
+	Shift(len);
+	MPI_Barrier(MPI_COMM_WORLD);
     }
-
+    
     MPI_Gather(res, len, MPI_DOUBLE, C, len, MPI_DOUBLE, 0, MPI_COMM_WORLD); // getting result
 
     free(row);

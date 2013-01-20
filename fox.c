@@ -16,3 +16,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "fox.h"
+#include "mpi.h"
+
+void FoxMult(double *A, double *B, double *C, int len) {
+    
+}

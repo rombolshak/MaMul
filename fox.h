@@ -18,6 +18,6 @@
 #ifndef _FOX_H
 #define _FOX_H
 
-
+void FoxMult(double *A, double *B, double *C, int len);
 
 #endif
