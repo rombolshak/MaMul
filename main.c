@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include "mpi.h"
 #include "tape.h"
+#include "fox.h"
+#include "cannon.h"
 
 int numProcs, myRank;
 
@@ -46,10 +48,12 @@ void genC(double *C, int len) {
 int checkResult(double *C, int len) {
     int i, j;
     for (i = 0; i < len; ++i)
-	for (j = 0; j < len; ++j)
+	for (j = 0; j < len; ++j) {
+	    //printf("C[%d, %d] = %f\n", i, j, C[i * len + j]);
 	    if (((numProcs % 2 == 0) && (C[i * len + j] != 0)) ||
 		((numProcs % 2 == 1) && (C[i * len + j] != -1)))
 		return 0;
+	}
     return 1;
 }
 
@@ -60,17 +64,19 @@ int main(int argc, char **argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-    A = malloc(sizeof(double) * numProcs * numProcs);
-    B = malloc(sizeof(double) * numProcs * numProcs);
-    C = malloc(sizeof(double) * numProcs * numProcs);
+    A = malloc(sizeof(double) * numProcs * numProcs * 16);
+    B = malloc(sizeof(double) * numProcs * numProcs * 16);
+    C = malloc(sizeof(double) * numProcs * numProcs * 16);
     
     if (myRank == 0) {
-	genA(A, numProcs);
-	genB(B, numProcs);}
-	genC(C, numProcs);
+	genA(A, numProcs * 4);
+	genB(B, numProcs * 4);}
+	genC(C, numProcs * 4);
     //}
-    TapeMult(A, B, C, numProcs);
-    printf("Check: %d\n", checkResult(C, numProcs));
+    //TapeMult(A, B, C, numProcs);
+    //FoxMult(A, B, C, numProcs * 4);
+    CannonMult(A, B, C, numProcs * 4);
+    printf("Check: %d\n", checkResult(C, numProcs * 4));
     
     free(A);
     free(B);

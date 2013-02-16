@@ -26,7 +26,7 @@
 double *row, *col, *res;
 int procsNum, myRank;
 
-void Init(double *A, double *B, int len) {
+void TapeInit(double *A, double *B, int len) {
     int i, j;
     
     // pass columns and rows to others processors
@@ -53,7 +53,7 @@ void Init(double *A, double *B, int len) {
 	}
 }
 
-void DoMult(int i, int len) {
+void TapeDoMult(int i, int len) {
     int j;    
     res[i] = 0;
     for (j = 0; j < len; ++j)
@@ -76,10 +76,10 @@ void TapeMult(double *A, double *B, double *C, int len) {
     col = malloc(sizeof(double) * len);
     res = malloc(sizeof(double) * len);
     
-    Init(A, B, len);
+    TapeInit(A, B, len);
     
     for (i = 0; i < len; ++i) {
-	DoMult(i, len);
+	       TapeDoMult(i, len);
 	MPI_Barrier(MPI_COMM_WORLD);
 	Shift(len);
 	MPI_Barrier(MPI_COMM_WORLD);

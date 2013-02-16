@@ -18,6 +18,6 @@
 #ifndef _CANNON_H
 #define _CANNON_H
 
-
+void CannonMult(double *A, double *B, double *C, int len);
 
 #endif

@@ -16,3 +16,32 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "cannon.h"
+#include "blockHelper.h"
+
+
+void CannonInit(double *A, double *B, int len) {
+    int i;
+    
+    BlocksInitDefault(A, B);
+
+    for (i = 1; i < gridSize; ++i) {
+	if (myRow == i) ShiftA(i);
+	if (myCol == i) ShiftB(i);
+    }
+}
+
+void CannonMult (double *A, double *B, double *C, int len) {
+    int i;
+    
+    if (!HelperInit(len)) return;
+    CannonInit(A, B, len);
+
+    for (i = 0; i < gridSize; ++i) {
+	DoMult();
+	ShiftA(1);
+	ShiftB(1);
+    }
+
+    GetResultTo(C);
+    DisposeBlocks();
+}
