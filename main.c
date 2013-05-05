@@ -63,6 +63,8 @@ int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+    
+    if (myRank == 0) printf("# p\tsize\tmethod\ttime\n");
 
     A = malloc(sizeof(double) * numProcs * numProcs * 16);
     B = malloc(sizeof(double) * numProcs * numProcs * 16);
@@ -73,9 +75,9 @@ int main(int argc, char **argv) {
 	genB(B, numProcs * 4);}
 	genC(C, numProcs * 4);
     //}
-    //TapeMult(A, B, C, numProcs);
+    TapeMult(A, B, C, numProcs * 4);
     //FoxMult(A, B, C, numProcs * 4);
-    CannonMult(A, B, C, numProcs * 4);
+    //CannonMult(A, B, C, numProcs * 4);
     printf("Check: %d\n", checkResult(C, numProcs * 4));
     
     free(A);

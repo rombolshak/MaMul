@@ -19,49 +19,51 @@
 #include "mpi.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
+#include <string.h>
 
 #define ROW 1
 #define COL 2
 
 double *row, *col, *res;
-int procsNum, myRank;
+int procsNum, myRank, k;
 
 void TapeInit(double *A, double *B, int len) {
     int i, j;
-    
+    //printf("Enter TapeInit\n");
     // pass columns and rows to others processors
     if (myRank == 0) {
-	for (i = 1; i < procsNum; ++i) {
-	    for (j = 0; j < len; ++j) {
-		row[j] = A[j];
-		col[j] = B[j * len + i];
+	for (i = procsNum - 1; i >= 0; --i) {
+	    for (j = 0; j < k * len; ++j) {
+		int rowInB = (int)floor(1.0 * j / k);
+		row[j] = A[i * k * len + j];
+		col[j] = B[rowInB * len + i * k + (j % k)];
 	    }
-	    MPI_Send(row, len, MPI_DOUBLE, i, ROW, MPI_COMM_WORLD);
-	    MPI_Send(col, len, MPI_DOUBLE, i, COL, MPI_COMM_WORLD);
+	    if (i != 0) {
+		MPI_Send(row, k * len, MPI_DOUBLE, i, ROW, MPI_COMM_WORLD);
+		MPI_Send(col, len * k, MPI_DOUBLE, i, COL, MPI_COMM_WORLD);
+	    }
 	}
+    }    
+    else {
+	MPI_Recv(row, k * len, MPI_DOUBLE, 0, ROW, MPI_COMM_WORLD, NULL);
+	MPI_Recv(col, len * k, MPI_DOUBLE, 0, COL, MPI_COMM_WORLD, NULL);
     }
-    if (myRank != 0) {
-	MPI_Recv(row, len, MPI_DOUBLE, 0, ROW, MPI_COMM_WORLD, NULL);
-	MPI_Recv(col, len, MPI_DOUBLE, 0, COL, MPI_COMM_WORLD, NULL);
-    }
-    
-    // make the same for ourselves
-    else
-	for (i = 0; i < len; ++i) {
-	    row[i] = A[i];
-	    col[i] = B[i * len];
-	}
+    //printf("Exit TapeInit\n");
 }
 
 void TapeDoMult(int i, int len) {
-    int j;    
-    res[i] = 0;
-    for (j = 0; j < len; ++j)
-	res[i] += row[j] * col[j];
+    int j, l, t, cell;
+    
+    cell = (procsNum + myRank - i) % procsNum;
+    for (j = 0; j < k; ++j) // строка в полосе А
+	for (l = 0; l < k; ++l) // столбец в полосе В
+	    for (t = 0; t < len; ++t)
+		res[j * len + cell * k + l] += row[j * len + t] * col[t * k + l];
 }
 
 void Shift(int len) {
-    MPI_Sendrecv_replace(col, len, MPI_DOUBLE, (myRank == 0) ? (len-1) : (myRank-1), COL, (myRank == len-1) ? (0) : (myRank + 1), COL, MPI_COMM_WORLD, NULL);
+    MPI_Sendrecv_replace(col, len * k, MPI_DOUBLE, (myRank == 0) ? (procsNum-1) : (myRank-1), COL, (myRank == procsNum-1) ? (0) : (myRank + 1), COL, MPI_COMM_WORLD, NULL);
 }
 
 void TapeMult(double *A, double *B, double *C, int len) {
@@ -69,23 +71,23 @@ void TapeMult(double *A, double *B, double *C, int len) {
     
     MPI_Comm_size(MPI_COMM_WORLD, &procsNum);
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
-    
-    if (procsNum != len) return; // number of processors must be the same the power of matrix is
-    
-    row = malloc(sizeof(double) * len);
-    col = malloc(sizeof(double) * len);
-    res = malloc(sizeof(double) * len);
+    k = len / procsNum; // строк в одной полосе
+        
+    row = malloc(sizeof(double) * k * len);
+    col = malloc(sizeof(double) * len * k);
+    res = malloc(sizeof(double) * k * len);
+    bzero(res, sizeof(double) * k * len);
+    //printf("Malloc success\n");
     
     TapeInit(A, B, len);
     
-    for (i = 0; i < len; ++i) {
-	       TapeDoMult(i, len);
-	MPI_Barrier(MPI_COMM_WORLD);
+    //printf("Begin main loop\n");
+    for (i = 0; i < procsNum; ++i) {
+	TapeDoMult(i, len);
 	Shift(len);
-	MPI_Barrier(MPI_COMM_WORLD);
     }
-    
-    MPI_Gather(res, len, MPI_DOUBLE, C, len, MPI_DOUBLE, 0, MPI_COMM_WORLD); // getting result
+    //printf("End main loop\n");
+    MPI_Gather(res, k * len, MPI_DOUBLE, C, k * len, MPI_DOUBLE, 0, MPI_COMM_WORLD); // getting result
 
     free(row);
     free(col);
